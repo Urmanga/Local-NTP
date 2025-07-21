@@ -51,9 +51,9 @@ class TimeServer:
                     self.log_callback(f"[SERVER] Ошибка: {e}")
                     break
                 with conn:
-                    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]  # UTC с миллисекундами
                     conn.sendall(now.encode('utf-8'))
-                    self.log_callback(f"[SERVER] Подключение от {addr}, отправлено время: {now}")
+                    self.log_callback(f"[SERVER] Подключение от {addr}, отправлено UTC-время: {now}")
 
     def udp_broadcast_listener(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_sock:

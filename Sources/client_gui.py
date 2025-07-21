@@ -64,17 +64,77 @@ class ClientGUI:
     def _sync_time_thread(self, server_ip, port):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                # Измеряем ping (RTT)
+                import time
+                ping_start = time.time()
                 s.connect((server_ip, port))
+                ping_end = time.time()
+                rtt = ping_end - ping_start
+                self.log(f"[CLIENT] Измеренный ping (RTT): {rtt*1000:.2f} мс")
                 data = s.recv(1024)
                 server_time = data.decode('utf-8')
                 self.log(f"[CLIENT] Получено время: {server_time}")
-                date_str, time_str = server_time.split(' ')
+                # Логика разбора времени с миллисекундами
+                if '.' in server_time:
+                    date_str, time_str = server_time.split(' ')
+                    time_main, ms = time_str.split('.')
+                    self.log(f"[CLIENT] Получено время с миллисекундами: {date_str} {time_main}.{ms}")
+                else:
+                    date_str, time_str = server_time.split(' ')
+                    ms = '000'
+                # Корректируем время на половину RTT (только для логов)
+                from datetime import datetime, timedelta
+                dt_format = '%Y-%m-%d %H:%M:%S.%f'
+                if '.' in server_time:
+                    dt = datetime.strptime(server_time, dt_format)
+                else:
+                    dt = datetime.strptime(server_time, '%Y-%m-%d %H:%M:%S')
+                corrected_dt = dt + timedelta(seconds=rtt/2)
+                self.log(f"[CLIENT] Время с учётом ping/2: {corrected_dt.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+                # Ждём половину RTT перед установкой времени
+                self.log(f"[CLIENT] Ожидание {rtt/2:.4f} сек для учёта ping/2 перед установкой времени...")
+                time.sleep(rtt/2)
                 # Преобразуем дату из ГГГГ-ММ-ДД в ДД-ММ-ГГ
                 y, m, d = date_str.split('-')
                 date_for_win = f"{d}-{m}-{y[2:]}"
                 try:
+                    # Попытка установить время через WinAPI с миллисекундами (теперь сервер всегда шлёт UTC)
+                    import ctypes
+                    # НЕ переводим в UTC, сервер уже шлёт UTC
+                    if '.' in server_time:
+                        dt_utc = datetime.strptime(f"{date_str} {time_str}", dt_format)
+                    else:
+                        dt_utc = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M:%S')
+                    class SYSTEMTIME(ctypes.Structure):
+                        _fields_ = [
+                            ("wYear", ctypes.c_ushort),
+                            ("wMonth", ctypes.c_ushort),
+                            ("wDayOfWeek", ctypes.c_ushort),
+                            ("wDay", ctypes.c_ushort),
+                            ("wHour", ctypes.c_ushort),
+                            ("wMinute", ctypes.c_ushort),
+                            ("wSecond", ctypes.c_ushort),
+                            ("wMilliseconds", ctypes.c_ushort),
+                        ]
+                    st = SYSTEMTIME()
+                    st.wYear = dt_utc.year
+                    st.wMonth = dt_utc.month
+                    st.wDay = dt_utc.day
+                    st.wHour = dt_utc.hour
+                    st.wMinute = dt_utc.minute
+                    st.wSecond = dt_utc.second
+                    st.wMilliseconds = int(dt_utc.microsecond / 1000)
+                    res = ctypes.windll.kernel32.SetSystemTime(ctypes.byref(st))
+                    if res:
+                        self.log(f"[CLIENT] Время установлено через WinAPI (UTC): {dt_utc.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+                    else:
+                        self.log(f"[CLIENT] Не удалось установить время через WinAPI. Код ошибки: {ctypes.GetLastError()}")
+                except Exception as e:
+                    self.log(f"[CLIENT] Ошибка при установке времени через WinAPI: {e}")
+                # Также пробуем стандартный способ для совместимости
+                try:
                     subprocess.run(f'date {date_for_win}', shell=True, check=True)
-                    subprocess.run(f'time {time_str}', shell=True, check=True)
+                    subprocess.run(f'time {time_str[:8]}', shell=True, check=True)  # только до секунд
                     self.log(f"[CLIENT] Время синхронизировано!")
                 except Exception as e:
                     self.log(f"[CLIENT] Не удалось изменить время. Запустите программу от имени администратора! Ошибка: {e}")
