@@ -129,4 +129,4 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = ServerGUI(root)
     root.protocol("WM_DELETE_WINDOW", lambda: (app.stop_server(), root.destroy()))
-    root.mainloop() 
+    root.mainloop()
