@@ -28,9 +28,9 @@
 ### 1. Запуск через Python (для теста)
 
 - **Клиент:**
-  1. Запусти `run_client_gui.bat`
+  1. Запусти ``python client_gui.py``
 - **Сервер:**
-  1. Запусти `run_server_gui.bat`
+  1. Запусти ``python server_gui.py``
 
 > ⚠️ Для смены времени на клиенте запускать от имени администратора!
 
@@ -67,10 +67,6 @@
 ```
 client_gui.py         # GUI-клиент
 server_gui.py         # GUI-сервер
-run_client_gui.bat    # Батник для запуска клиента
-run_server_gui.bat    # Батник для запуска сервера
-settings_server.json  # Настройки сервера (если нужны)
-dist/                 # Готовые exe-файлы после сборки
 ```
 
 ---
