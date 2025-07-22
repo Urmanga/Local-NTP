@@ -152,10 +152,15 @@ class ClientGUI:
     def _find_server_thread(self):
         self.log("[CLIENT] Поиск сервера...")
         try:
+            port = int(self.port_entry.get())
+        except ValueError:
+            self.log("[CLIENT] Некорректный порт для поиска")
+            return
+        try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 s.settimeout(2)
-                s.sendto(b'CUSTONTP_DISCOVER', ('<broadcast>', 12345))
+                s.sendto(b'CUSTONTP_DISCOVER', ('<broadcast>', port))
                 data, addr = s.recvfrom(1024)
                 if data == b'CUSTONTP_RESPONSE':
                     self.server_ip_entry.delete(0, tk.END)
