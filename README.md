@@ -34,8 +34,10 @@
 
 - **Клиент:**
   1. Запусти ``python Sources/client_gui.py`` или ``python Sources/client_pyqt.py``
+  2. Или `run_client_pyqt.bat`
 - **Сервер:**
   1. Запусти ``python Sources/server_gui.py`` или ``python Sources/server_pyqt.py``
+  2. Или `run_server_pyqt.bat`
 
 > ⚠️ Для смены времени на клиенте запускать от имени администратора!
 > - Для смены времени на клиенте нужны права администратора.
@@ -79,6 +81,8 @@ Sources/
   client_pyqt.py      # GUI-клиент (PyQt)
   server_gui.py       # GUI-сервер
   server_pyqt.py      # GUI-сервер (PyQt)
+run_client_pyqt.bat   # Батник для клиента PyQt
+run_server_pyqt.bat   # Батник для сервера PyQt
 client_gui.exe        # Скомпилированный клиент
 server_gui.exe        # Скомпилированный сервер
 client_settings.json  # Настройки клиента
