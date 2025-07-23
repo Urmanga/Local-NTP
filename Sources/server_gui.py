@@ -1,7 +1,7 @@
 import threading
 import socket
-import datetime
 import tkinter as tk
+from local_ntp.common import current_utc_time
 from tkinter import scrolledtext, messagebox
 
 class TimeServer:
@@ -51,7 +51,7 @@ class TimeServer:
                     self.log_callback(f"[SERVER] Ошибка: {e}")
                     break
                 with conn:
-                    now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]  # UTC с миллисекундами
+                    now = current_utc_time()
                     conn.sendall(now.encode('utf-8'))
                     self.log_callback(f"[SERVER] Подключение от {addr}, отправлено UTC-время: {now}")
 

@@ -1,9 +1,8 @@
 import sys
 import socket
 import threading
-import datetime
-
 from PyQt5 import QtWidgets
+from local_ntp.common import current_utc_time
 
 class TimeServer:
     def __init__(self, log_callback):
@@ -52,7 +51,7 @@ class TimeServer:
                     self.log_callback(f'[SERVER] Ошибка: {e}')
                     break
                 with conn:
-                    now = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                    now = current_utc_time()
                     conn.sendall(now.encode('utf-8'))
                     self.log_callback(f'[SERVER] Подключение от {addr}, отправлено UTC-время: {now}')
 

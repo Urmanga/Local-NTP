@@ -1,12 +1,18 @@
 import ctypes
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
-import socket
 import subprocess
+import time
 import threading
 import sys
 import os
-import json
+
+from local_ntp.common import (
+    load_settings,
+    save_settings,
+    discover_server,
+    get_time_from_server,
+)
 
 class ClientGUI:
     CONFIG_FILE = "client_settings.json"
@@ -63,17 +69,9 @@ class ClientGUI:
 
     def _sync_time_thread(self, server_ip, port):
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                # Измеряем ping (RTT)
-                import time
-                ping_start = time.time()
-                s.connect((server_ip, port))
-                ping_end = time.time()
-                rtt = ping_end - ping_start
-                self.log(f"[CLIENT] Измеренный ping (RTT): {rtt*1000:.2f} мс")
-                data = s.recv(1024)
-                server_time = data.decode('utf-8')
-                self.log(f"[CLIENT] Получено время: {server_time}")
+            server_time, rtt = get_time_from_server(server_ip, port)
+            self.log(f"[CLIENT] Измеренный ping (RTT): {rtt*1000:.2f} мс")
+            self.log(f"[CLIENT] Получено время: {server_time}")
                 # Логика разбора времени с миллисекундами
                 if '.' in server_time:
                     date_str, time_str = server_time.split(' ')
@@ -156,43 +154,39 @@ class ClientGUI:
         except ValueError:
             self.log("[CLIENT] Некорректный порт для поиска")
             return
+        ip = None
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                s.settimeout(2)
-                s.sendto(b'CUSTONTP_DISCOVER', ('<broadcast>', port))
-                data, addr = s.recvfrom(1024)
-                if data == b'CUSTONTP_RESPONSE':
-                    self.server_ip_entry.delete(0, tk.END)
-                    self.server_ip_entry.insert(0, addr[0])
-                    self.log(f"[CLIENT] Сервер найден: {addr[0]}")
-                    self.save_settings()
-                    return
+            ip = discover_server(port)
         except Exception as e:
             self.log(f"[CLIENT] Сервер не найден: {e}")
+            return
+        if ip:
+            self.server_ip_entry.delete(0, tk.END)
+            self.server_ip_entry.insert(0, ip)
+            self.log(f"[CLIENT] Сервер найден: {ip}")
+            self.save_settings()
+        else:
+            self.log("[CLIENT] Сервер не найден")
 
     def save_settings(self):
         data = {
             "ip": self.server_ip_entry.get(),
-            "port": self.port_entry.get()
+            "port": self.port_entry.get(),
         }
         try:
-            with open(self.CONFIG_FILE, "w", encoding="utf-8") as f:
-                json.dump(data, f)
+            save_settings(self.CONFIG_FILE, data)
         except Exception as e:
             self.log(f"[CLIENT] Не удалось сохранить настройки: {e}")
 
     def load_settings(self):
         try:
-            with open(self.CONFIG_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.server_ip_entry.delete(0, tk.END)
-                self.server_ip_entry.insert(0, data.get("ip", "127.0.0.1"))
-                self.port_entry.delete(0, tk.END)
-                self.port_entry.insert(0, data.get("port", "12345"))
+            data = load_settings(self.CONFIG_FILE)
         except Exception:
-            self.server_ip_entry.insert(0, "127.0.0.1")
-            self.port_entry.insert(0, "12345")
+            data = {}
+        self.server_ip_entry.delete(0, tk.END)
+        self.server_ip_entry.insert(0, data.get("ip", "127.0.0.1"))
+        self.port_entry.delete(0, tk.END)
+        self.port_entry.insert(0, data.get("port", "12345"))
 
     def toggle_autorun(self):
         try:

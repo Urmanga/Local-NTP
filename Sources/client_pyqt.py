@@ -1,10 +1,16 @@
 import sys
-import socket
 import threading
-import json
 import os
 import subprocess
 import ctypes
+import time
+
+from local_ntp.common import (
+    load_settings,
+    save_settings,
+    discover_server,
+    get_time_from_server,
+)
 
 from PyQt5 import QtWidgets, QtCore
 
@@ -66,16 +72,9 @@ class ClientGUI(QtWidgets.QWidget):
 
     def _sync_thread(self, server_ip, port):
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                import time
-                ping_start = time.time()
-                s.connect((server_ip, port))
-                ping_end = time.time()
-                rtt = ping_end - ping_start
-                self.log(f'[CLIENT] Измеренный ping (RTT): {rtt*1000:.2f} мс')
-                data = s.recv(1024)
-                server_time = data.decode('utf-8')
-                self.log(f'[CLIENT] Получено время: {server_time}')
+            server_time, rtt = get_time_from_server(server_ip, port)
+            self.log(f'[CLIENT] Измеренный ping (RTT): {rtt*1000:.2f} мс')
+            self.log(f'[CLIENT] Получено время: {server_time}')
                 date_str, time_str = server_time.split(' ')
                 from datetime import datetime, timedelta
                 dt_format = '%Y-%m-%d %H:%M:%S.%f'
@@ -144,39 +143,34 @@ class ClientGUI(QtWidgets.QWidget):
             self.log('[CLIENT] Некорректный порт для поиска')
             return
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                s.settimeout(2)
-                s.sendto(b'CUSTONTP_DISCOVER', ('<broadcast>', port))
-                data, addr = s.recvfrom(1024)
-                if data == b'CUSTONTP_RESPONSE':
-                    self.server_ip.setText(addr[0])
-                    self.log(f'[CLIENT] Сервер найден: {addr[0]}')
-                    self._save_settings()
-                    return
+            ip = discover_server(port)
         except Exception as e:
             self.log(f'[CLIENT] Сервер не найден: {e}')
+            return
+        if ip:
+            self.server_ip.setText(ip)
+            self.log(f'[CLIENT] Сервер найден: {ip}')
+            self._save_settings()
+        else:
+            self.log('[CLIENT] Сервер не найден')
 
     def _save_settings(self):
         data = {
             'ip': self.server_ip.text(),
-            'port': self.port_edit.text()
+            'port': self.port_edit.text(),
         }
         try:
-            with open(self.CONFIG_FILE, 'w', encoding='utf-8') as f:
-                json.dump(data, f)
+            save_settings(self.CONFIG_FILE, data)
         except Exception as e:
             self.log(f'[CLIENT] Не удалось сохранить настройки: {e}')
 
     def _load_settings(self):
         try:
-            with open(self.CONFIG_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                self.server_ip.setText(data.get('ip', '127.0.0.1'))
-                self.port_edit.setText(data.get('port', '12345'))
+            data = load_settings(self.CONFIG_FILE)
         except Exception:
-            self.server_ip.setText('127.0.0.1')
-            self.port_edit.setText('12345')
+            data = {}
+        self.server_ip.setText(data.get('ip', '127.0.0.1'))
+        self.port_edit.setText(data.get('port', '12345'))
 
     def toggle_autorun(self):
         try:
