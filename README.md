@@ -6,7 +6,7 @@
 
 ## 🚀 Возможности
 
-- **GUI-клиент** (client_gui.py / client_gui.exe):
+- **GUI-клиент** (client_gui.py / client_pyqt.py / client_gui.exe):
   - Синхронизация времени с сервером по сети
   - Автоматический поиск сервера в локальной сети
   - Сохранение и автозагрузка последнего IP и порта
@@ -15,7 +15,7 @@
   - Поддержка запуска от администратора для смены времени
   - Логи событий прямо в окне
 
-- **GUI-сервер** (server_gui.py / server_gui.exe):
+- **GUI-сервер** (server_gui.py / server_pyqt.py / server_gui.exe):
   - Запуск и остановка сервера одной кнопкой
   - Выбор порта
   - Просмотр логов подключений и событий
@@ -33,9 +33,9 @@
 ### 1. Запуск через Python (для теста)
 
 - **Клиент:**
-  1. Запусти ``python Sources/client_gui.py``
+  1. Запусти ``python Sources/client_gui.py`` или ``python Sources/client_pyqt.py``
 - **Сервер:**
-  1. Запусти ``python Sources/server_gui.py``
+  1. Запусти ``python Sources/server_gui.py`` или ``python Sources/server_pyqt.py``
 
 > ⚠️ Для смены времени на клиенте запускать от имени администратора!
 > - Для смены времени на клиенте нужны права администратора.
@@ -52,12 +52,14 @@
 
 1. Установи зависимости:
    ```sh
-   pip install pyinstaller pywin32
+   pip install pyinstaller pywin32 PyQt5
    ```
 2. Собери exe:
    ```sh
    pyinstaller --onefile --noconsole --collect-all pywin32 --collect-all win32com --hidden-import=win32com --hidden-import=win32com.client --hidden-import=win32api --hidden-import=win32con client_gui.py
+   pyinstaller --onefile --noconsole client_pyqt.py
    pyinstaller --onefile --noconsole server_gui.py
+   pyinstaller --onefile --noconsole server_pyqt.py
    ```
 3. Готовые файлы будут в папке `dist`.
 
@@ -74,7 +76,9 @@
 ```
 Sources/
   client_gui.py       # GUI-клиент
+  client_pyqt.py      # GUI-клиент (PyQt)
   server_gui.py       # GUI-сервер
+  server_pyqt.py      # GUI-сервер (PyQt)
 client_gui.exe        # Скомпилированный клиент
 server_gui.exe        # Скомпилированный сервер
 client_settings.json  # Настройки клиента
