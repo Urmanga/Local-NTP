@@ -20,12 +20,19 @@ def save_settings(path, data):
 
 
 def discover_server(port, timeout=2):
-    """Broadcasts a discovery packet and returns server IP if found."""
+    """Broadcasts a discovery packet and returns server IP if found.
+
+    If no response is received before the ``timeout`` expires, ``None`` is
+    returned instead of raising :class:`socket.timeout`.
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         s.settimeout(timeout)
         s.sendto(b"CUSTONTP_DISCOVER", ("<broadcast>", port))
-        data, addr = s.recvfrom(1024)
+        try:
+            data, addr = s.recvfrom(1024)
+        except socket.timeout:
+            return None
         if data == b"CUSTONTP_RESPONSE":
             return addr[0]
     return None
