@@ -14,14 +14,17 @@ from local_ntp.common import (
 
 from PyQt5 import QtWidgets, QtCore
 
+
 class ClientGUI(QtWidgets.QWidget):
     CONFIG_FILE = 'client_settings.json'
+    log_signal = QtCore.pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle('CustoNTP Client (PyQt)')
         self._autorun_enabled = False
         self._build_ui()
+        self.log_signal.connect(self.log)
         self._load_settings()
         self._check_autorun_state()
 
@@ -73,8 +76,8 @@ class ClientGUI(QtWidgets.QWidget):
     def _sync_thread(self, server_ip, port):
         try:
             server_time, rtt = get_time_from_server(server_ip, port)
-            self.log(f'[CLIENT] Измеренный ping (RTT): {rtt*1000:.2f} мс')
-            self.log(f'[CLIENT] Получено время: {server_time}')
+            self.log_signal.emit(f'[CLIENT] Измеренный ping (RTT): {rtt*1000:.2f} мс')
+            self.log_signal.emit(f'[CLIENT] Получено время: {server_time}')
                 date_str, time_str = server_time.split(' ')
                 from datetime import datetime, timedelta
                 dt_format = '%Y-%m-%d %H:%M:%S.%f'
@@ -83,7 +86,7 @@ class ClientGUI(QtWidgets.QWidget):
                 else:
                     dt = datetime.strptime(server_time, dt_format)
                 corrected_dt = dt + timedelta(seconds=rtt/2)
-                self.log(f'[CLIENT] Время с учётом ping/2: {corrected_dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]}')
+                self.log_signal.emit(f'[CLIENT] Время с учётом ping/2: {corrected_dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]}')
                 time.sleep(rtt/2)
                 y, m, d = date_str.split('-')
                 date_for_win = f'{d}-{m}-{y[2:]}'
@@ -113,46 +116,46 @@ class ClientGUI(QtWidgets.QWidget):
                     st.wMilliseconds = int(dt_utc.microsecond/1000)
                     res = ctypes.windll.kernel32.SetSystemTime(ctypes.byref(st))
                     if res:
-                        self.log('[CLIENT] Время установлено через WinAPI')
+                        self.log_signal.emit('[CLIENT] Время установлено через WinAPI')
                     else:
-                        self.log(f'[CLIENT] Не удалось установить время через WinAPI. Код ошибки: {ctypes.GetLastError()}')
+                        self.log_signal.emit(f'[CLIENT] Не удалось установить время через WinAPI. Код ошибки: {ctypes.GetLastError()}')
                 except Exception as e:
-                    self.log(f'[CLIENT] Ошибка при установке времени через WinAPI: {e}')
+                    self.log_signal.emit(f'[CLIENT] Ошибка при установке времени через WinAPI: {e}')
                 try:
                     subprocess.run(f'date {date_for_win}', shell=True, check=True)
                     subprocess.run(f'time {time_str[:8]}', shell=True, check=True)
-                    self.log('[CLIENT] Время синхронизировано!')
+                    self.log_signal.emit('[CLIENT] Время синхронизировано!')
                 except Exception as e:
-                    self.log(f'[CLIENT] Не удалось изменить время. Запустите программу от имени администратора! Ошибка: {e}')
+                    self.log_signal.emit(f'[CLIENT] Не удалось изменить время. Запустите программу от имени администратора! Ошибка: {e}')
         except Exception as e:
-            self.log(f'[CLIENT] Ошибка: {e}')
+            self.log_signal.emit(f'[CLIENT] Ошибка: {e}')
 
     def copy_ip(self):
         cb = QtWidgets.QApplication.clipboard()
         cb.setText(self.server_ip.text())
-        self.log('[CLIENT] IP скопирован в буфер обмена.')
+        self.log_signal.emit('[CLIENT] IP скопирован в буфер обмена.')
 
     def find_server(self):
         threading.Thread(target=self._find_thread, daemon=True).start()
 
     def _find_thread(self):
-        self.log('[CLIENT] Поиск сервера...')
+        self.log_signal.emit('[CLIENT] Поиск сервера...')
         try:
             port = int(self.port_edit.text())
         except ValueError:
-            self.log('[CLIENT] Некорректный порт для поиска')
+            self.log_signal.emit('[CLIENT] Некорректный порт для поиска')
             return
         try:
             ip = discover_server(port)
         except Exception as e:
-            self.log(f'[CLIENT] Сервер не найден: {e}')
+            self.log_signal.emit(f'[CLIENT] Сервер не найден: {e}')
             return
         if ip:
             self.server_ip.setText(ip)
-            self.log(f'[CLIENT] Сервер найден: {ip}')
+            self.log_signal.emit(f'[CLIENT] Сервер найден: {ip}')
             self._save_settings()
         else:
-            self.log('[CLIENT] Сервер не найден')
+            self.log_signal.emit('[CLIENT] Сервер не найден')
 
     def _save_settings(self):
         data = {
@@ -162,7 +165,7 @@ class ClientGUI(QtWidgets.QWidget):
         try:
             save_settings(self.CONFIG_FILE, data)
         except Exception as e:
-            self.log(f'[CLIENT] Не удалось сохранить настройки: {e}')
+            self.log_signal.emit(f'[CLIENT] Не удалось сохранить настройки: {e}')
 
     def _load_settings(self):
         try:
