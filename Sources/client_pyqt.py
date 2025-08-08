@@ -1,9 +1,7 @@
 import sys
 import threading
 import os
-import subprocess
 import ctypes
-import time
 
 from local_ntp.common import (
     load_settings,
@@ -11,6 +9,7 @@ from local_ntp.common import (
     discover_server,
     get_time_from_server,
 )
+from local_ntp.sync import sync_time
 
 from PyQt5 import QtWidgets, QtCore
 
@@ -75,55 +74,7 @@ class ClientGUI(QtWidgets.QWidget):
             server_time, rtt = get_time_from_server(server_ip, port)
             self.log(f'[CLIENT] Измеренный ping (RTT): {rtt*1000:.2f} мс')
             self.log(f'[CLIENT] Получено время: {server_time}')
-                date_str, time_str = server_time.split(' ')
-                from datetime import datetime, timedelta
-                dt_format = '%Y-%m-%d %H:%M:%S.%f'
-                if '.' not in time_str:
-                    dt = datetime.strptime(server_time, '%Y-%m-%d %H:%M:%S')
-                else:
-                    dt = datetime.strptime(server_time, dt_format)
-                corrected_dt = dt + timedelta(seconds=rtt/2)
-                self.log(f'[CLIENT] Время с учётом ping/2: {corrected_dt.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]}')
-                time.sleep(rtt/2)
-                y, m, d = date_str.split('-')
-                date_for_win = f'{d}-{m}-{y[2:]}'
-                try:
-                    if '.' in server_time:
-                        dt_utc = datetime.strptime(server_time, dt_format)
-                    else:
-                        dt_utc = datetime.strptime(server_time, '%Y-%m-%d %H:%M:%S')
-                    class SYSTEMTIME(ctypes.Structure):
-                        _fields_ = [
-                            ('wYear', ctypes.c_ushort),
-                            ('wMonth', ctypes.c_ushort),
-                            ('wDayOfWeek', ctypes.c_ushort),
-                            ('wDay', ctypes.c_ushort),
-                            ('wHour', ctypes.c_ushort),
-                            ('wMinute', ctypes.c_ushort),
-                            ('wSecond', ctypes.c_ushort),
-                            ('wMilliseconds', ctypes.c_ushort),
-                        ]
-                    st = SYSTEMTIME()
-                    st.wYear = dt_utc.year
-                    st.wMonth = dt_utc.month
-                    st.wDay = dt_utc.day
-                    st.wHour = dt_utc.hour
-                    st.wMinute = dt_utc.minute
-                    st.wSecond = dt_utc.second
-                    st.wMilliseconds = int(dt_utc.microsecond/1000)
-                    res = ctypes.windll.kernel32.SetSystemTime(ctypes.byref(st))
-                    if res:
-                        self.log('[CLIENT] Время установлено через WinAPI')
-                    else:
-                        self.log(f'[CLIENT] Не удалось установить время через WinAPI. Код ошибки: {ctypes.GetLastError()}')
-                except Exception as e:
-                    self.log(f'[CLIENT] Ошибка при установке времени через WinAPI: {e}')
-                try:
-                    subprocess.run(f'date {date_for_win}', shell=True, check=True)
-                    subprocess.run(f'time {time_str[:8]}', shell=True, check=True)
-                    self.log('[CLIENT] Время синхронизировано!')
-                except Exception as e:
-                    self.log(f'[CLIENT] Не удалось изменить время. Запустите программу от имени администратора! Ошибка: {e}')
+            sync_time(server_time, rtt, self.log)
         except Exception as e:
             self.log(f'[CLIENT] Ошибка: {e}')
 
