@@ -6,6 +6,7 @@ import time
 import threading
 import sys
 import os
+import queue
 
 from local_ntp.common import (
     load_settings,
@@ -20,9 +21,11 @@ class ClientGUI:
         self.root = root
         self.root.title("CustoNTP Client")
         self._autorun_enabled = False
+        self.log_queue = queue.Queue()
         self.create_widgets()
         self.load_settings()
         self.check_autorun_state()
+        self.root.after(100, self._process_log_queue)
 
     def create_widgets(self):
         frame = tk.Frame(self.root)
@@ -52,10 +55,16 @@ class ClientGUI:
         self.log_text.pack(padx=10, pady=10)
 
     def log(self, msg):
-        self.log_text.config(state=tk.NORMAL)
-        self.log_text.insert(tk.END, msg + "\n")
-        self.log_text.see(tk.END)
-        self.log_text.config(state=tk.DISABLED)
+        self.log_queue.put(msg)
+
+    def _process_log_queue(self):
+        while not self.log_queue.empty():
+            msg = self.log_queue.get()
+            self.log_text.config(state=tk.NORMAL)
+            self.log_text.insert(tk.END, msg + "\n")
+            self.log_text.see(tk.END)
+            self.log_text.config(state=tk.DISABLED)
+        self.root.after(100, self._process_log_queue)
 
     def sync_time(self):
         server_ip = self.server_ip_entry.get()
